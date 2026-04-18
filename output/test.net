@@ -1,0 +1,85 @@
+(export 
+  (version "D")
+  (design
+    (source "<interactive>")
+    (date "04/18/2026 11:06 PM")
+    (tool "SKiDL (2.2.3)")
+    (sheet
+      (number 1)
+      (name "/")
+      (tstamps "/")
+      (title_block
+        (title)
+        (company)
+        (rev)
+        (date)
+        (source "<interactive>")
+        (comment
+          (number "1")
+          (value ""))
+        (comment
+          (number "2")
+          (value ""))
+        (comment
+          (number "3")
+          (value ""))
+        (comment
+          (number "4")
+          (value ""))
+        (comment
+          (number "5")
+          (value ""))
+        (comment
+          (number "6")
+          (value ""))
+        (comment
+          (number "7")
+          (value ""))
+        (comment
+          (number "8")
+          (value ""))
+        (comment
+          (number "9")
+          (value "")))))
+  (components
+    (comp
+      (ref "U1")
+      (value "4.7k")
+      (description "")
+      (footprint "Resistor_SMD:R_0402_1005Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Resistor_SMD:R_0402_1005Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "vH2ZSsM_OF")
+        (field
+          (name "SKiDL Line") "<string>:13"))
+      (libsource
+        (lib "NO_LIB")
+        (part "R"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "06ff3447-ffcf-5242-9261-dbff284c850f")))
+  (nets
+    (net
+      (code 1)
+      (name "3V3")
+      (class "Default")
+      (node
+        (ref "U1")
+        (pin "1")
+        (pintype "PASSIVE")))
+    (net
+      (code 2)
+      (name "GND")
+      (class "Default")
+      (node
+        (ref "U1")
+        (pin "2")
+        (pintype "PASSIVE")))))

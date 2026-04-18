@@ -1,0 +1,445 @@
+(export 
+  (version "D")
+  (design
+    (source "main.py")
+    (date "04/19/2026 12:23 AM")
+    (tool "SKiDL (2.2.3)")
+    (sheet
+      (number 1)
+      (name "/")
+      (tstamps "/")
+      (title_block
+        (title)
+        (company)
+        (rev)
+        (date)
+        (source "main.py")
+        (comment
+          (number "1")
+          (value ""))
+        (comment
+          (number "2")
+          (value ""))
+        (comment
+          (number "3")
+          (value ""))
+        (comment
+          (number "4")
+          (value ""))
+        (comment
+          (number "5")
+          (value ""))
+        (comment
+          (number "6")
+          (value ""))
+        (comment
+          (number "7")
+          (value ""))
+        (comment
+          (number "8")
+          (value ""))
+        (comment
+          (number "9")
+          (value "")))))
+  (components
+    (comp
+      (ref "C1")
+      (value "100nF")
+      (description "")
+      (footprint "Capacitor_SMD:C_0402_1005Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Capacitor_SMD:C_0402_1005Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "MwASgbiYYO")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:137"))
+      (libsource
+        (lib "NO_LIB")
+        (part "C"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "4144fa95-f676-5e07-8bb5-f730c697ba94"))
+    (comp
+      (ref "C2")
+      (value "10uF")
+      (description "")
+      (footprint "Capacitor_SMD:C_0805_2012Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Capacitor_SMD:C_0805_2012Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "1VO0AyupmU")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:142"))
+      (libsource
+        (lib "NO_LIB")
+        (part "C"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "5d32e1b4-c121-5f7d-8b11-9c79f7453516"))
+    (comp
+      (ref "C3")
+      (value "100nF")
+      (description "")
+      (footprint "Capacitor_SMD:C_0603_1608Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Capacitor_SMD:C_0603_1608Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "uCmMsEnNTZ")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:148"))
+      (libsource
+        (lib "NO_LIB")
+        (part "C"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "f41adf3a-747b-5728-ab11-7ef28c955311"))
+    (comp
+      (ref "C4")
+      (value "100uF")
+      (description "")
+      (footprint "Capacitor_SMD:C_1206_3216Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "JsqJQDDw4Q")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:153"))
+      (libsource
+        (lib "NO_LIB")
+        (part "C"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "af5c5d3d-3701-5027-a5ee-37db4fb2c96f"))
+    (comp
+      (ref "J1")
+      (value "Conn_01x04_Male")
+      (description "")
+      (footprint "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "FnEilSCGYe")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:112"))
+      (libsource
+        (lib "NO_LIB")
+        (part "Conn_01x04_Male"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "0540586e-1537-599d-841b-6717b8b89850"))
+    (comp
+      (ref "J2")
+      (value "Conn_01x04_Male")
+      (description "")
+      (footprint "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "OHS8JBmmjF")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:159"))
+      (libsource
+        (lib "NO_LIB")
+        (part "Conn_01x04_Male"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "fac303d1-a602-51e5-b360-05d77e035443"))
+    (comp
+      (ref "R1")
+      (value "4.7k")
+      (description "")
+      (footprint "Resistor_SMD:R_0402_1005Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Resistor_SMD:R_0402_1005Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "Ep9VmJzwkP")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:120"))
+      (libsource
+        (lib "NO_LIB")
+        (part "R"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "eb3e74a8-87ac-51e9-ae7e-ca42f1bfef3c"))
+    (comp
+      (ref "R2")
+      (value "4.7k")
+      (description "")
+      (footprint "Resistor_SMD:R_0402_1005Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Resistor_SMD:R_0402_1005Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "8B9LIsy2w8")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:125"))
+      (libsource
+        (lib "NO_LIB")
+        (part "R"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "fe0b891b-4627-5e49-b7c6-ce7cb67cd01b"))
+    (comp
+      (ref "R3")
+      (value "10k")
+      (description "")
+      (footprint "Resistor_SMD:R_0402_1005Metric")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Resistor_SMD:R_0402_1005Metric")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "moLU70ZbxD")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:131"))
+      (libsource
+        (lib "NO_LIB")
+        (part "R"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "3107eb64-9f86-51d6-bee7-eb19597d5de5"))
+    (comp
+      (ref "U1")
+      (value "EMC2103")
+      (description "")
+      (footprint "Package_DFN_QFN:QFN-20-1EP_4x4mm_P0.5mm_EP2.65x2.65mm")
+      (fields
+        (field
+          (name "Description"))
+        (field
+          (name "Footprint") "Package_DFN_QFN:QFN-20-1EP_4x4mm_P0.5mm_EP2.65x2.65mm")
+        (field
+          (name "Datasheet"))
+        (field
+          (name "SKiDL Tag") "kxPyzWcvsP")
+        (field
+          (name "SKiDL Line") "circuits\fan_controller.py:98"))
+      (libsource
+        (lib "NO_LIB")
+        (part "EMC2103"))
+      (sheetpath
+        (names "/")
+        (tstamps "/"))
+      (component_classes)
+      (tstamps "3188e92d-4fc7-5276-9c19-b7c4690464ab")))
+  (nets
+    (net
+      (code 1)
+      (name "12V")
+      (class "Default")
+      (node
+        (ref "C3")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "C4")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "J1")
+        (pin "2")
+        (pintype "PASSIVE")))
+    (net
+      (code 2)
+      (name "3V3")
+      (class "Default")
+      (node
+        (ref "C1")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "C2")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "R1")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "R2")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "R3")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "7")
+        (pintype "POWER-IN"))
+      (node
+        (ref "U1")
+        (pin "8")
+        (pintype "POWER-IN")))
+    (net
+      (code 3)
+      (name "FAN_PWM")
+      (class "Default")
+      (node
+        (ref "J1")
+        (pin "4")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "2")
+        (pintype "OUTPUT")))
+    (net
+      (code 4)
+      (name "FAN_TACH")
+      (class "Default")
+      (node
+        (ref "J1")
+        (pin "3")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "1")
+        (pintype "INPUT")))
+    (net
+      (code 5)
+      (name "GND")
+      (class "Default")
+      (node
+        (ref "C1")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "C2")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "C3")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "C4")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "J1")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "J2")
+        (pin "4")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "21")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "6")
+        (pintype "INPUT"))
+      (node
+        (ref "U1")
+        (pin "9")
+        (pintype "POWER-IN")))
+    (net
+      (code 6)
+      (name "I2C_SCL")
+      (class "Default")
+      (node
+        (ref "J2")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "R2")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "5")
+        (pintype "INPUT")))
+    (net
+      (code 7)
+      (name "I2C_SDA")
+      (class "Default")
+      (node
+        (ref "J2")
+        (pin "1")
+        (pintype "PASSIVE"))
+      (node
+        (ref "R1")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "4")
+        (pintype "BIDIRECTIONAL")))
+    (net
+      (code 8)
+      (name "SMBALERT_N")
+      (class "Default")
+      (node
+        (ref "J2")
+        (pin "3")
+        (pintype "PASSIVE"))
+      (node
+        (ref "R3")
+        (pin "2")
+        (pintype "PASSIVE"))
+      (node
+        (ref "U1")
+        (pin "3")
+        (pintype "OPEN-COLLECTOR")))))

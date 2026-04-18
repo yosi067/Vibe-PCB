@@ -1,0 +1,10 @@
+{
+  "project": "AI Server Fan Controller",
+  "tool": "Vibe-PCB Orchestrator",
+  "files": {
+    "netlist": "output\\fan_controller.net",
+    "pcb": "output\\fan_controller.kicad_pcb",
+    "step": null,
+    "gerber": "output\\gerber"
+  }
+}

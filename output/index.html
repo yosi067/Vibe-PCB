@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe-PCB — Multi-Module PCB Orchestrator</title>
+    <script type="module" src="https://kicanvas.org/kicanvas/kicanvas.js"></script>
+    <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"}}</script>
+    <style>
+        :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--text-muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--orange:#d29922;--red:#f85149}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+        header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:12px}
+        header h1{font-size:18px;font-weight:600}
+        .badge{background:var(--accent);color:var(--bg);padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+        .subtitle{color:var(--text-muted);font-size:13px;margin-left:auto}
+        /* Module Switcher */
+        .module-switcher{display:flex;gap:6px;margin-left:12px}
+        .mod-btn{background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;transition:all .2s}
+        .mod-btn:hover{border-color:var(--accent);color:var(--text)}
+        .mod-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+        .tab-bar{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px}
+        .tab{padding:10px 20px;color:var(--text-muted);font-size:14px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;user-select:none}
+        .tab:hover{color:var(--text)}
+        .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .panel{display:none;position:absolute;inset:0;overflow:hidden}
+        .panel.active{display:block}
+        .panels-wrap{position:relative;flex:1;height:calc(100vh - 88px)}
+        kicanvas-embed{display:block;width:100%;height:100%;outline:none}
+        #three-canvas{width:100%;height:100%;display:block}
+        .info-panel{display:none;position:absolute;inset:0;overflow-y:auto;padding:24px}
+        .info-panel.active{display:block}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+        .card.full{grid-column:1/-1}
+        .card h2{font-size:15px;color:var(--accent);margin-bottom:10px}
+        table{width:100%;border-collapse:collapse;font-size:13px}
+        th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+        th{color:var(--text-muted);font-weight:500}
+        .ok{color:var(--green)}
+        .warn{color:var(--orange)}
+        .danger{color:var(--red);font-weight:600}
+        .cost{color:var(--orange);font-weight:500}
+        .info-list{list-style:none;font-size:13px}
+        .info-list li{padding:8px 0;border-bottom:1px solid var(--border);line-height:1.5}
+        .info-list li:last-child{border-bottom:none}
+        .info-list .key{color:var(--text-muted)}
+        .pipeline{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+        .step-box{background:var(--bg);border:1px solid var(--green);border-radius:6px;padding:8px 14px;flex:1;min-width:120px;text-align:center}
+        .step-box .num{font-size:20px;font-weight:700;color:var(--green)}
+        .step-box .lbl{font-size:11px;color:var(--text-muted);margin-top:2px}
+        .arrow{display:flex;align-items:center;color:var(--text-muted);font-size:16px}
+        .three-controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
+        .three-controls button{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px}
+        .three-controls button:hover{background:var(--accent);color:var(--bg)}
+        .three-info{position:absolute;top:12px;left:12px;background:rgba(22,27,34,0.9);border:1px solid var(--border);border-radius:8px;padding:12px 16px;z-index:10;font-size:12px;line-height:1.6}
+        .three-info .title{color:var(--accent);font-weight:600;margin-bottom:4px}
+        .i2c-table td.conflict{color:var(--red);font-weight:600}
+        .i2c-table td.safe{color:var(--green)}
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔧 Vibe-PCB Orchestrator</h1>
+        <span class="badge">v0.1</span>
+        <div class="module-switcher">
+            <button class="mod-btn active" data-module="fan" onclick="switchModule('fan')">🌀 Fan Controller</button>
+            <button class="mod-btn" data-module="power" onclick="switchModule('power')">⚡ Power Monitor</button>
+        </div>
+        <span class="subtitle">Multi-Module PCB Design System</span>
+    </header>
+
+    <div class="tab-bar">
+        <div class="tab active" data-target="pcb-panel">📐 PCB 2D 佈局</div>
+        <div class="tab" data-target="sch-panel">📋 電路原理圖</div>
+        <div class="tab" data-target="three-panel">🧊 3D 模型</div>
+        <div class="tab" data-target="info-panel">📊 分析報告</div>
+    </div>
+
+    <div class="panels-wrap">
+        <!-- PCB 2D -->
+        <div id="pcb-panel" class="panel active">
+            <kicanvas-embed id="kc-pcb" src="fan_controller.kicad_pcb" controls="full" zoom="objects"></kicanvas-embed>
+        </div>
+
+        <!-- Schematic -->
+        <div id="sch-panel" class="panel">
+            <kicanvas-embed id="kc-sch" src="fan_controller.kicad_sch" controls="full" zoom="objects"></kicanvas-embed>
+        </div>
+
+        <!-- 3D Model -->
+        <div id="three-panel" class="panel">
+            <canvas id="three-canvas"></canvas>
+            <div class="three-info" id="three-info-text">
+                <div class="title" id="three-title">AI Server Fan Controller</div>
+                <div id="three-board-info">Board: 40mm × 30mm × 1.6mm</div>
+                <div id="three-layers-info">Layers: F.Cu / B.Cu (GND fill)</div>
+                <div id="three-comp-info">Components: 10 pcs + 4 mounting holes</div>
+                <div style="margin-top:4px;color:var(--text-muted)">🖱️ 拖曳旋轉 | 滾輪縮放 | 右鍵平移</div>
+                <div style="margin-top:2px;color:var(--green);font-size:11px">⚡ 動態模擬: 風扇旋轉 | 訊號流 | 散熱</div>
+            </div>
+            <div class="three-controls">
+                <button onclick="resetCamera()">🔄 重置視角</button>
+                <button onclick="toggleWireframe()">🔲 線框</button>
+                <button onclick="toggleLabels()">🏷️ 標籤</button>
+                <button onclick="toggleAnimations()">⚡ 動態</button>
+                <button onclick="cycleFanSpeed()">🌀 風速</button>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div id="info-panel" class="info-panel">
+            <div class="pipeline">
+                <div class="step-box"><div class="num">1</div><div class="lbl">SKiDL → Netlist</div></div>
+                <div class="arrow">→</div>
+                <div class="step-box"><div class="num">2</div><div class="lbl">電壓/功率/I2C 檢查</div></div>
+                <div class="arrow">→</div>
+                <div class="step-box"><div class="num">3</div><div class="lbl">PCB + SCH 生成</div></div>
+                <div class="arrow">→</div>
+                <div class="step-box"><div class="num">4</div><div class="lbl">即時預覽</div></div>
+            </div>
+
+            <!-- ====== 跨模組共用卡片 ====== -->
+            <div class="grid">
+                <div class="card">
+                    <h2>🔗 I2C 位址分佈 (跨模組)</h2>
+                    <table class="i2c-table">
+                        <thead><tr><th>位址</th><th>IC</th><th>模組</th><th>狀態</th></tr></thead>
+                        <tbody>
+                            <tr><td>0x2E</td><td>EMC2103</td><td>Fan Controller</td><td class="safe">✔ 無衝突</td></tr>
+                            <tr><td>0x41</td><td>INA226</td><td>Power Monitor</td><td class="safe">✔ 無衝突</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card">
+                    <h2>🔥 P = I²R 功率檢查</h2>
+                    <table>
+                        <thead><tr><th>Ref</th><th>值</th><th>封裝</th><th>P(W)</th><th>額定</th><th>狀態</th></tr></thead>
+                        <tbody>
+                            <tr><td>Rs1</td><td>2mΩ</td><td>2512</td><td>1.80W</td><td>2.0W</td><td class="warn">⚠ 90% (餘量 0.2W)</td></tr>
+                            <tr><td>R1</td><td>4.7kΩ</td><td>0402</td><td>&lt;1mW</td><td>0.1W</td><td class="ok">✔ 安全</td></tr>
+                            <tr><td>R2</td><td>4.7kΩ</td><td>0402</td><td>&lt;1mW</td><td>0.1W</td><td class="ok">✔ 安全</td></tr>
+                            <tr><td>R3</td><td>10kΩ</td><td>0402</td><td>&lt;1mW</td><td>0.1W</td><td class="ok">✔ 安全</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ====== Fan Controller 專屬 ====== -->
+            <div class="grid module-section" data-mod="fan">
+                <div class="card">
+                    <h2>🔌 電壓域 — Fan Controller</h2>
+                    <table>
+                        <thead><tr><th>Net</th><th>電壓</th><th>用途</th><th>狀態</th></tr></thead>
+                        <tbody>
+                            <tr><td>3V3</td><td>3.3V</td><td>邏輯 VCC/VDDIO</td><td class="ok">✔</td></tr>
+                            <tr><td>12V</td><td>12V</td><td>風扇供電</td><td class="ok">✔</td></tr>
+                            <tr><td>GND</td><td>0V</td><td>共用接地 (B.Cu fill)</td><td class="ok">✔</td></tr>
+                            <tr><td>FAN_PWM</td><td>3.3V</td><td>PWM 控制</td><td class="ok">✔</td></tr>
+                            <tr><td>FAN_TACH</td><td>3.3V</td><td>轉速反饋</td><td class="ok">✔</td></tr>
+                            <tr><td>I2C_SDA/SCL</td><td>3.3V</td><td>BMC 資料/時脈</td><td class="ok">✔</td></tr>
+                            <tr><td>SMBALERT_N</td><td>3.3V</td><td>過溫中斷</td><td class="ok">✔</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card">
+                    <h2>📦 BOM — Fan Controller (EMC2103)</h2>
+                    <table>
+                        <thead><tr><th>Ref</th><th>值</th><th>封裝</th><th class="cost">成本</th></tr></thead>
+                        <tbody>
+                            <tr><td>U1</td><td>EMC2103</td><td>QFN-20 4×4mm</td><td class="cost">$2.50</td></tr>
+                            <tr><td>J1</td><td>4-Pin Fan</td><td>PinHeader 2.54mm</td><td class="cost">$0.15</td></tr>
+                            <tr><td>J2</td><td>BMC I2C</td><td>PinHeader 2.54mm</td><td class="cost">$0.15</td></tr>
+                            <tr><td>R1, R2</td><td>4.7kΩ</td><td>0402</td><td class="cost">$0.02</td></tr>
+                            <tr><td>R3</td><td>10kΩ</td><td>0402</td><td class="cost">$0.01</td></tr>
+                            <tr><td>C1</td><td>100nF</td><td>0402</td><td class="cost">$0.02</td></tr>
+                            <tr><td>C2</td><td>10µF</td><td>0805</td><td class="cost">$0.08</td></tr>
+                            <tr><td>C3</td><td>100nF</td><td>0603</td><td class="cost">$0.02</td></tr>
+                            <tr><td>C4</td><td>100µF</td><td>1206</td><td class="cost">$0.25</td></tr>
+                            <tr style="font-weight:600;border-top:2px solid var(--border)"><td colspan="3">小計 (10 pcs)</td><td class="cost">≈ $3.22</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card full">
+                    <h2>🤖 AI 設計建議 — Fan Controller</h2>
+                    <ul class="info-list">
+                        <li><span class="key">佈線密度：</span>12V 走線寬度 0.6mm (24mil)，可承載 2A 風扇電流。3V3 電源走線 0.4mm，訊號線 0.2mm。</li>
+                        <li><span class="key">散熱設計：</span>EMC2103 QFN-20 Exposed Pad 下方配置 4 個 Thermal Via (0.2mm drill)，導熱至背面 GND 填銅區。</li>
+                        <li><span class="key">EMI 防護：</span>12V 電源去耦電容 (C3: 100nF + C4: 100µF) 緊貼風扇接頭 J1，縮短高頻迴路。</li>
+                        <li><span class="key">I2C 匯流排：</span>SDA/SCL 上拉電阻 4.7kΩ 適合 100kHz Standard Mode。走線保持平行，間距 ≥ 2× 線寬。</li>
+                        <li><span class="key">板面尺寸：</span>40mm × 30mm，四角 M2.5 安裝孔，適合伺服器機箱子卡固定。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ====== Power Monitor 專屬 ====== -->
+            <div class="grid module-section" data-mod="power" style="display:none">
+                <div class="card">
+                    <h2>🔌 電壓域 — Power Monitor</h2>
+                    <table>
+                        <thead><tr><th>Net</th><th>電壓</th><th>用途</th><th>狀態</th></tr></thead>
+                        <tbody>
+                            <tr><td>3V3</td><td>3.3V</td><td>邏輯 VCC</td><td class="ok">✔</td></tr>
+                            <tr><td>GND</td><td>0V</td><td>共用接地 (B.Cu fill)</td><td class="ok">✔</td></tr>
+                            <tr><td>12V_INPUT</td><td>12V</td><td>高側電流輸入</td><td class="ok">✔</td></tr>
+                            <tr><td>12V_OUTPUT</td><td>12V</td><td>低側電流輸出</td><td class="ok">✔</td></tr>
+                            <tr><td>I2C_SDA/SCL</td><td>3.3V</td><td>BMC 匯流排</td><td class="ok">✔</td></tr>
+                            <tr><td>PWR_ALERT_N</td><td>3.3V</td><td>過電流警報 (open-drain)</td><td class="ok">✔</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card">
+                    <h2>📦 BOM — Power Monitor (INA226)</h2>
+                    <table>
+                        <thead><tr><th>Ref</th><th>值</th><th>封裝</th><th class="cost">成本</th></tr></thead>
+                        <tbody>
+                            <tr><td>U2</td><td>INA226</td><td>MSOP-10</td><td class="cost">$3.80</td></tr>
+                            <tr class="danger"><td>Rs1</td><td>2mΩ (0.002Ω)</td><td>2512 2W</td><td class="cost">$0.45</td></tr>
+                            <tr><td>J3</td><td>12V IN</td><td>PinHeader 1×02</td><td class="cost">$0.10</td></tr>
+                            <tr><td>J4</td><td>12V OUT</td><td>PinHeader 1×02</td><td class="cost">$0.10</td></tr>
+                            <tr><td>J5</td><td>BMC I2C</td><td>PinHeader 1×04</td><td class="cost">$0.15</td></tr>
+                            <tr><td>R4, R5</td><td>4.7kΩ</td><td>0402</td><td class="cost">$0.02</td></tr>
+                            <tr><td>R6</td><td>10kΩ</td><td>0402</td><td class="cost">$0.01</td></tr>
+                            <tr><td>R7</td><td>1kΩ</td><td>0402</td><td class="cost">$0.01</td></tr>
+                            <tr><td>D1</td><td>RED LED</td><td>0603</td><td class="cost">$0.05</td></tr>
+                            <tr><td>C5</td><td>100nF</td><td>0402</td><td class="cost">$0.02</td></tr>
+                            <tr><td>C6</td><td>10µF</td><td>0805</td><td class="cost">$0.08</td></tr>
+                            <tr><td>C7</td><td>100nF</td><td>0603</td><td class="cost">$0.02</td></tr>
+                            <tr style="font-weight:600;border-top:2px solid var(--border)"><td colspan="3">小計 (13 pcs)</td><td class="cost">≈ $4.83</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card full">
+                    <h2>🤖 AI 設計建議 — Power Monitor</h2>
+                    <ul class="info-list">
+                        <li><span class="key">⚠️ 高風險元件 (Rs1)：</span>分流電阻 0.002Ω 2512 封裝在 30A 滿載時功耗 1.8W，距 2W 額定僅 10% 餘量。建議降額使用或加散熱銅皮。3D 模型中以<span class="danger">紅色高亮</span>標示。</li>
+                        <li><span class="key">電流路徑：</span>12V 高電流 (30A) 走線需 ≥ 2mm 寬度 (2oz 銅)。分流電阻建議使用 Kelvin 4-wire 連接以提高量測精度。</li>
+                        <li><span class="key">INA226 精度：</span>分流 LSB = 2.5µV，匯流 LSB = 1.25mV。可程式化 Alert 閾值，支援 Over/Under 電壓/電流警報。</li>
+                        <li><span class="key">I2C 位址：</span>A0=VCC, A1=GND → 0x41，與 EMC2103 (0x2E) 無衝突。匯流排上拉電阻若已有可移除。</li>
+                        <li><span class="key">GND 策略：</span>背面 GND 填銅 + 加粗 GND via 陣列降低 GND 阻抗，對高電流回路尤為重要。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ====== 跨模組總計 ====== -->
+            <div class="grid">
+                <div class="card full">
+                    <h2>💰 總成本估算</h2>
+                    <table>
+                        <thead><tr><th>模組</th><th>零件數</th><th>主要 IC</th><th class="cost">成本</th></tr></thead>
+                        <tbody>
+                            <tr><td>Fan Controller</td><td>10 pcs</td><td>EMC2103</td><td class="cost">≈ $3.22</td></tr>
+                            <tr><td>Power Monitor</td><td>13 pcs</td><td>INA226</td><td class="cost">≈ $4.83</td></tr>
+                            <tr style="font-weight:700;border-top:2px solid var(--accent)"><td colspan="3">合計 (不含 PCB 製造與焊接)</td><td class="cost" style="font-size:15px">≈ $8.05/套</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Module state ──
+        let currentModule = 'fan';
+        const moduleConfig = {
+            fan: {
+                pcb: 'fan_controller.kicad_pcb',
+                sch: 'fan_controller.kicad_sch',
+                title: 'AI Server Fan Controller',
+                board: 'Board: 40mm × 30mm × 1.6mm',
+                layers: 'Layers: F.Cu / B.Cu (GND fill)',
+                comp: 'Components: 10 pcs + 4 mounting holes'
+            },
+            power: {
+                pcb: 'power_monitor.kicad_pcb',
+                sch: 'power_monitor.kicad_sch',
+                title: 'Smart Power Monitor (INA226)',
+                board: 'Board: 35mm × 25mm × 1.6mm',
+                layers: 'Layers: F.Cu / B.Cu (GND fill)',
+                comp: 'Components: 13 pcs + 4 mounting holes'
+            }
+        };
+
+        // Replace a KiCanvas embed entirely (setAttribute won't reload)
+        function replaceKiCanvas(containerId, embedId, newSrc) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const old = document.getElementById(embedId);
+            if (old) old.remove();
+            const el = document.createElement('kicanvas-embed');
+            el.id = embedId;
+            el.setAttribute('src', newSrc);
+            el.setAttribute('controls', 'full');
+            el.setAttribute('zoom', 'objects');
+            container.appendChild(el);
+            setTimeout(() => hideOverlay(el, 20), 400);
+        }
+
+        window.switchModule = function(mod) {
+            currentModule = mod;
+            // Update buttons
+            document.querySelectorAll('.mod-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.module === mod);
+            });
+            const cfg = moduleConfig[mod];
+            // Replace KiCanvas embeds (must recreate element to reload)
+            replaceKiCanvas('pcb-panel', 'kc-pcb', cfg.pcb);
+            replaceKiCanvas('sch-panel', 'kc-sch', cfg.sch);
+            // Update 3D info panel
+            const ti = document.getElementById('three-title');
+            const bi = document.getElementById('three-board-info');
+            const li = document.getElementById('three-layers-info');
+            const ci = document.getElementById('three-comp-info');
+            if (ti) ti.textContent = cfg.title;
+            if (bi) bi.textContent = cfg.board;
+            if (li) li.textContent = cfg.layers;
+            if (ci) ci.textContent = cfg.comp;
+            // Toggle info panel module sections
+            document.querySelectorAll('.module-section').forEach(sec => {
+                sec.style.display = sec.dataset.mod === mod ? '' : 'none';
+            });
+            // Rebuild 3D if initialized
+            if (window._threeInited && window.rebuild3D) window.rebuild3D(mod);
+        };
+
+        // ── Arrow-key panning & transparent overlay auto-click for KiCanvas views ──
+        function getActiveKiCanvas() {
+            const p = document.querySelector('.panel.active');
+            return p ? p.querySelector('kicanvas-embed') : null;
+        }
+        function getKiCanvasViewer(kcEmbed) {
+            try {
+                const sr = kcEmbed.shadowRoot;
+                if (!sr) return null;
+                const app = sr.querySelector('kc-board-app') || sr.querySelector('kc-schematic-app');
+                if (!app || !app.shadowRoot) return null;
+                const viewerEl = app.shadowRoot.querySelector('kc-board-viewer') || app.shadowRoot.querySelector('kc-schematic-viewer');
+                if (!viewerEl) return null;
+                return viewerEl.viewer || null;
+            } catch { return null; }
+        }
+        // Hide overlay text and make it auto-dismiss on first interaction
+        function hideOverlay(kcEmbed, attempts) {
+            if (attempts <= 0) return;
+            const sr = kcEmbed.shadowRoot;
+            if (!sr) { setTimeout(() => hideOverlay(kcEmbed, attempts - 1), 200); return; }
+            const overlay = sr.querySelector('kc-ui-focus-overlay');
+            if (overlay) {
+                // Inject style to hide the overlay text
+                const style = document.createElement('style');
+                style.textContent = ':host { opacity: 0 !important; }';
+                if (overlay.shadowRoot) {
+                    overlay.shadowRoot.appendChild(style);
+                } else {
+                    // Fallback: directly hide
+                    overlay.style.opacity = '0';
+                }
+                // Auto-click to activate after a short delay
+                setTimeout(() => { overlay.click(); }, 100);
+            } else {
+                setTimeout(() => hideOverlay(kcEmbed, attempts - 1), 200);
+            }
+        }
+        function panKiCanvas(kcEmbed, dx, dy) {
+            const viewer = getKiCanvasViewer(kcEmbed);
+            if (!viewer || !viewer.viewport || !viewer.viewport.camera) return;
+            const cam = viewer.viewport.camera;
+            const scale = 1 / cam.zoom;
+            cam.center.x += dx * scale;
+            cam.center.y += dy * scale;
+            viewer.draw();
+        }
+        const PAN_STEP = 60;
+        document.addEventListener('keydown', (e) => {
+            if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) return;
+            const kc = getActiveKiCanvas();
+            if (!kc) return;
+            e.preventDefault();
+            let dx = 0, dy = 0;
+            switch (e.key) {
+                case 'ArrowUp':    dy = -PAN_STEP; break;
+                case 'ArrowDown':  dy =  PAN_STEP; break;
+                case 'ArrowLeft':  dx = -PAN_STEP; break;
+                case 'ArrowRight': dx =  PAN_STEP; break;
+            }
+            panKiCanvas(kc, dx, dy);
+        });
+
+        // Auto-hide overlay on PCB viewer
+        (function() {
+            const kcPcb = document.getElementById('kc-pcb');
+            if (kcPcb) hideOverlay(kcPcb, 20);
+        })();
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.panel, .info-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.target).classList.add('active');
+                if (tab.dataset.target === 'three-panel' && !window._threeInited) initThree();
+                // Always re-hide overlay on freshly created KiCanvas elements
+                if (tab.dataset.target === 'sch-panel') {
+                    const kcSch = document.getElementById('kc-sch');
+                    if (kcSch) hideOverlay(kcSch, 20);
+                }
+                if (tab.dataset.target === 'pcb-panel') {
+                    const kcPcb = document.getElementById('kc-pcb');
+                    if (kcPcb) hideOverlay(kcPcb, 10);
+                }
+            });
+        });
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+        let scene, camera, renderer, controls, labelRenderer;
+        let wireframeMode = false;
+        let labelsVisible = true;
+        let animationsEnabled = true;
+        const boardMeshes = [];
+        const labelObjects = [];
+        const componentMeshes = [];
+
+        // Dynamic animation objects
+        let fanGroup = null;
+        let fanBlades = null;
+        let fanSpeed = 0;
+        let fanTargetSpeed = 4.0;  // rad/frame
+        const signalParticles = [];
+        let thermalGlow = null;
+        let pwmIndicator = null;
+        let pwmPhase = 0;
+        const traceGlowMeshes = [];
+        let clock = null;
+        let currentBuildModule = 'fan';  // tracks which module is rendered
+        let shuntGlow = null;  // power monitor: hot shunt resistor glow
+
+        // Board dimensions (mm → scene units: 1mm = 1 unit)
+        const BW = 40, BH = 30, BT = 1.6;
+        const PCB_COLOR = 0x1a472a;       // FR4 green
+        const COPPER_TOP = 0xb87333;      // Copper
+        const COPPER_BOT = 0xb87333;
+        const SOLDERMASK = 0x004d1a;      // Dark green solder mask
+        const SILKSCREEN = 0xffffff;
+        const PAD_COLOR = 0xc0c0c0;       // Silver pads
+        const PIN_COLOR = 0x888888;
+        const IC_COLOR = 0x1a1a1a;        // Black IC body
+        const CAP_COLOR = 0x8b6914;       // Tan capacitor
+        const RES_COLOR = 0x1a1a2e;       // Dark resistor
+
+        function initThree() {
+            window._threeInited = true;
+            const canvas = document.getElementById('three-canvas');
+            const container = document.getElementById('three-panel');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0d1117);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 500);
+            camera.position.set(30, 40, 50);
+
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+
+            // CSS2D label renderer
+            labelRenderer = new CSS2DRenderer();
+            labelRenderer.setSize(container.clientWidth, container.clientHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0';
+            labelRenderer.domElement.style.left = '0';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            container.appendChild(labelRenderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(30, 50, 30);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-20, 30, -20);
+            scene.add(fillLight);
+
+            // Grid
+            const grid = new THREE.GridHelper(80, 40, 0x30363d, 0x21262d);
+            grid.position.y = -BT / 2 - 0.5;
+            scene.add(grid);
+
+            buildPCB();
+            buildDynamics();
+            clock = new THREE.Clock();
+            animate();
+
+            window.addEventListener('resize', onResize);
+        }
+
+        function buildPCB() {
+            // ── PCB Board (FR4 base) ──
+            const boardGeo = new THREE.BoxGeometry(BW, BT, BH);
+            const boardMat = new THREE.MeshStandardMaterial({ color: PCB_COLOR, roughness: 0.6 });
+            const board = new THREE.Mesh(boardGeo, boardMat);
+            board.receiveShadow = true;
+            scene.add(board);
+            boardMeshes.push(board);
+
+            // Solder mask top
+            const maskGeo = new THREE.BoxGeometry(BW - 0.2, 0.05, BH - 0.2);
+            const maskMat = new THREE.MeshStandardMaterial({ color: SOLDERMASK, roughness: 0.4, transparent: true, opacity: 0.8 });
+            const maskTop = new THREE.Mesh(maskGeo, maskMat);
+            maskTop.position.y = BT / 2 + 0.025;
+            scene.add(maskTop);
+            boardMeshes.push(maskTop);
+
+            // Copper bottom (GND fill)
+            const copperBotGeo = new THREE.BoxGeometry(BW - 1, 0.035, BH - 1);
+            const copperBotMat = new THREE.MeshStandardMaterial({ color: COPPER_BOT, roughness: 0.3, metalness: 0.8 });
+            const copperBot = new THREE.Mesh(copperBotGeo, copperBotMat);
+            copperBot.position.y = -BT / 2 - 0.02;
+            scene.add(copperBot);
+            boardMeshes.push(copperBot);
+
+            // ── U1: EMC2103 QFN-20 ──
+            addQFN20(16 - BW/2, 14 - BH/2, 'U1\nEMC2103');
+
+            // ── J1: Fan Connector (right) — with fan assembly ──
+            addFanConnector(36 - BW/2, 8 - BH/2, 'J1\nFAN');
+
+            // ── J2: BMC I2C Connector (left) ──
+            addPinHeader4(4 - BW/2, 8 - BH/2, 'J2\nBMC');
+
+            // ── Resistors ──
+            addSMDResistor(10 - BW/2, 9 - BH/2, 'R1', '4.7k');
+            addSMDResistor(10 - BW/2, 12 - BH/2, 'R2', '4.7k');
+            addSMDResistor(10 - BW/2, 15 - BH/2, 'R3', '10k');
+
+            // ── Capacitors ──
+            addSMDCapacitor(16 - BW/2, 6 - BH/2, 0.5, 0.25, 'C1', '100nF');
+            addSMDCapacitor(20 - BW/2, 6 - BH/2, 1.0, 0.6, 'C2', '10uF');
+            addSMDCapacitor(30 - BW/2, 8 - BH/2, 0.8, 0.4, 'C3', '100nF');
+            addSMDCapacitor(30 - BW/2, 12 - BH/2, 1.6, 0.8, 'C4', '100uF');
+
+            // ── Mounting Holes ──
+            addMountingHole(3 - BW/2, 3 - BH/2);
+            addMountingHole(37 - BW/2, 3 - BH/2);
+            addMountingHole(3 - BW/2, 27 - BH/2);
+            addMountingHole(37 - BW/2, 27 - BH/2);
+
+            // ── Copper Traces (top, simplified) ──
+            addTrace([[-4.48, -9], [-4.48, -3], [-2, -1.5]], 0.4, COPPER_TOP); // 3V3 bus
+            addTrace([[-0.48, -9], [0.48, -9], [4.48, -9], [-4.48, -9]], 0.4, COPPER_TOP); // 3V3 to R
+            addTrace([[16, -4.46], [10, -4.46], [9.25, -7], [8.5, -3]], 0.6, COPPER_TOP); // 12V
+            addTrace([[-2, -1], [6, -1], [16, 0.62]], 0.2, COPPER_TOP); // FAN_PWM
+            addTrace([[-2, -0], [6, 0], [16, -1.92]], 0.2, COPPER_TOP); // FAN_TACH
+
+            // ── Vias ──
+            for (const [vx, vy] of [[-3.2, -8.8], [0.9, -9], [10.75, -7], [11.5, -3]]) {
+                addVia(vx, vy);
+            }
+            // Thermal vias under U1
+            for (const [dx, dy] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) {
+                addVia(-4 + dx, -1 + dy, 0.3);
+            }
+
+            // ── Silkscreen Text ──
+            addTextLabel(0, BH/2 - 2, 'AI Server Fan Controller', 1.2);
+            addTextLabel(0, -BH/2 + 2, 'Vibe-PCB v0.1', 0.8);
+        }
+
+        // ── Component Builders ──
+
+        function addQFN20(x, z, label) {
+            const group = new THREE.Group();
+            // IC body
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(4, 1.0, 4),
+                new THREE.MeshStandardMaterial({ color: IC_COLOR, roughness: 0.3 })
+            );
+            body.position.y = BT/2 + 0.5;
+            body.castShadow = true;
+            group.add(body);
+
+            // Exposed pad
+            const ep = new THREE.Mesh(
+                new THREE.BoxGeometry(2.65, 0.05, 2.65),
+                new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2 })
+            );
+            ep.position.y = BT/2 + 0.03;
+            group.add(ep);
+
+            // Pads around perimeter
+            for (let i = 0; i < 5; i++) {
+                for (const side of ['bottom', 'top', 'left', 'right']) {
+                    const pad = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.25, 0.05, 0.6),
+                        new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2 })
+                    );
+                    if (side === 'bottom') { pad.position.set(-1 + i * 0.5, BT/2 + 0.03, 1.85); }
+                    else if (side === 'top') { pad.position.set(1 - i * 0.5, BT/2 + 0.03, -1.85); pad.rotation.y = Math.PI; }
+                    else if (side === 'right') { pad.position.set(1.85, BT/2 + 0.03, 1 - i * 0.5); pad.rotation.y = Math.PI/2; }
+                    else { pad.position.set(-1.85, BT/2 + 0.03, -1 + i * 0.5); pad.rotation.y = -Math.PI/2; }
+                    group.add(pad);
+                }
+            }
+
+            // Pin 1 dot
+            const dot = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 8, 8),
+                new THREE.MeshStandardMaterial({ color: SILKSCREEN })
+            );
+            dot.position.set(-1.2, BT/2 + 1.05, 1.5);
+            group.add(dot);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(label, x, BT/2 + 1.8, z);
+        }
+
+        function addPinHeader4(x, z, label) {
+            const group = new THREE.Group();
+            const housing = new THREE.Mesh(
+                new THREE.BoxGeometry(2.54, 2.5, 10.16),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+            );
+            housing.position.y = BT/2 + 1.25;
+            housing.castShadow = true;
+            group.add(housing);
+
+            for (let i = 0; i < 4; i++) {
+                // Pin above
+                const pinUp = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.32, 0.32, 6, 8),
+                    new THREE.MeshStandardMaterial({ color: PIN_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                pinUp.position.set(0, BT/2 + 5.5, -3.81 + i * 2.54);
+                group.add(pinUp);
+                // Pin below
+                const pinDown = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.25, 0.25, 2, 8),
+                    new THREE.MeshStandardMaterial({ color: PIN_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                pinDown.position.set(0, -BT/2 - 1, -3.81 + i * 2.54);
+                group.add(pinDown);
+            }
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(label, x, BT/2 + 9, z);
+        }
+
+        function addSMDResistor(x, z, ref, val) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.0, 0.4, 0.5),
+                new THREE.MeshStandardMaterial({ color: RES_COLOR, roughness: 0.5 })
+            );
+            body.position.y = BT/2 + 0.2;
+            body.castShadow = true;
+            group.add(body);
+
+            for (const dx of [-0.4, 0.4]) {
+                const term = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.25, 0.35, 0.5),
+                    new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.8, roughness: 0.2 })
+                );
+                term.position.set(dx, BT/2 + 0.175, 0);
+                group.add(term);
+            }
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(ref + '\n' + val, x, BT/2 + 1.0, z);
+        }
+
+        function addSMDCapacitor(x, z, w, h, ref, val) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(w, Math.max(0.4, h * 0.5), h),
+                new THREE.MeshStandardMaterial({ color: CAP_COLOR, roughness: 0.5 })
+            );
+            const bh = Math.max(0.4, h * 0.5);
+            body.position.y = BT/2 + bh / 2;
+            body.castShadow = true;
+            group.add(body);
+
+            for (const dx of [-w/2 * 0.7, w/2 * 0.7]) {
+                const term = new THREE.Mesh(
+                    new THREE.BoxGeometry(w * 0.2, bh * 0.9, h),
+                    new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.8, roughness: 0.2 })
+                );
+                term.position.set(dx, BT/2 + bh / 2, 0);
+                group.add(term);
+            }
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(ref + '\n' + val, x, BT/2 + bh + 0.5, z);
+        }
+
+        function addMountingHole(x, z) {
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(1.0, 1.5, 24),
+                new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(x, BT/2 + 0.04, z);
+            scene.add(ring);
+
+            // Hole
+            const hole = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.0, 1.0, BT + 0.2, 24),
+                new THREE.MeshStandardMaterial({ color: 0x0d1117 })
+            );
+            hole.position.set(x, 0, z);
+            scene.add(hole);
+        }
+
+        function addTrace(points, width, color) {
+            for (let i = 0; i < points.length - 1; i++) {
+                const [x1, z1] = points[i];
+                const [x2, z2] = points[i + 1];
+                const dx = x2 - x1, dz = z2 - z1;
+                const len = Math.sqrt(dx * dx + dz * dz);
+                const angle = Math.atan2(dx, dz);
+
+                const trace = new THREE.Mesh(
+                    new THREE.BoxGeometry(width, 0.035, len),
+                    new THREE.MeshStandardMaterial({ color, metalness: 0.7, roughness: 0.3 })
+                );
+                trace.position.set((x1 + x2) / 2, BT/2 + 0.05, (z1 + z2) / 2);
+                trace.rotation.y = angle;
+                scene.add(trace);
+            }
+        }
+
+        function addVia(x, z, r = 0.2) {
+            const via = new THREE.Mesh(
+                new THREE.CylinderGeometry(r, r, BT + 0.1, 12),
+                new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2 })
+            );
+            via.position.set(x, 0, z);
+            scene.add(via);
+
+            // Annular ring top
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(r, r + 0.15, 12),
+                new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(x, BT/2 + 0.04, z);
+            scene.add(ring);
+        }
+
+        function addTextLabel(x, z, text, size) {
+            // Flat text on PCB top using sprite
+            const canvas2d = document.createElement('canvas');
+            const ctx = canvas2d.getContext('2d');
+            canvas2d.width = 512;
+            canvas2d.height = 64;
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 32px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(text, 256, 40);
+
+            const texture = new THREE.CanvasTexture(canvas2d);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.position.set(x, BT/2 + 0.1, z);
+            sprite.scale.set(size * 10, size * 1.2, 1);
+            scene.add(sprite);
+            labelObjects.push(sprite);
+        }
+
+        function addCSS2DLabel(text, x, y, z) {
+            const div = document.createElement('div');
+            div.style.cssText = 'color:#e6edf3;font-size:10px;font-family:monospace;text-align:center;white-space:pre;text-shadow:0 0 4px #000;pointer-events:none';
+            div.textContent = text;
+            const label = new CSS2DObject(div);
+            label.position.set(x, y, z);
+            scene.add(label);
+            labelObjects.push(label);
+        }
+
+        // ── Fan Connector with Spinning Fan Assembly ──
+        function addFanConnector(x, z, label) {
+            const group = new THREE.Group();
+
+            // Pin header base (same as addPinHeader4)
+            const housing = new THREE.Mesh(
+                new THREE.BoxGeometry(2.54, 2.5, 10.16),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+            );
+            housing.position.y = BT/2 + 1.25;
+            housing.castShadow = true;
+            group.add(housing);
+
+            for (let i = 0; i < 4; i++) {
+                const pinUp = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.32, 0.32, 6, 8),
+                    new THREE.MeshStandardMaterial({ color: PIN_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                pinUp.position.set(0, BT/2 + 5.5, -3.81 + i * 2.54);
+                group.add(pinUp);
+                const pinDown = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.25, 0.25, 2, 8),
+                    new THREE.MeshStandardMaterial({ color: PIN_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                pinDown.position.set(0, -BT/2 - 1, -3.81 + i * 2.54);
+                group.add(pinDown);
+            }
+
+            // Cable from header going up
+            const cableMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+            const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 4, 8), cableMat);
+            cable.position.set(0, BT/2 + 10, 0);
+            group.add(cable);
+
+            // Fan housing (semi-transparent box)
+            const fanHousingMat = new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a, roughness: 0.4, transparent: true, opacity: 0.7
+            });
+            const fanHousing = new THREE.Mesh(new THREE.BoxGeometry(12, 3, 12), fanHousingMat);
+            fanHousing.position.set(0, BT/2 + 15, 0);
+            group.add(fanHousing);
+
+            // Fan frame ring
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.5 });
+            const frameRing = new THREE.Mesh(new THREE.TorusGeometry(5, 0.4, 8, 32), frameMat);
+            frameRing.rotation.x = Math.PI / 2;
+            frameRing.position.set(0, BT/2 + 15, 0);
+            group.add(frameRing);
+
+            // Fan hub (center)
+            const hubMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.5, roughness: 0.3 });
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.5, 16), hubMat);
+            hub.position.set(0, BT/2 + 15, 0);
+
+            // Fan blade group (will rotate)
+            fanGroup = new THREE.Group();
+            fanGroup.position.set(0, BT/2 + 15, 0);
+            const bladeMat = new THREE.MeshStandardMaterial({
+                color: 0x88aacc, roughness: 0.4, transparent: true, opacity: 0.85,
+                side: THREE.DoubleSide
+            });
+            // 7 blades
+            for (let i = 0; i < 7; i++) {
+                const angle = (i / 7) * Math.PI * 2;
+                const bladeShape = new THREE.Shape();
+                bladeShape.moveTo(0, 0);
+                bladeShape.lineTo(0.5, 4.2);
+                bladeShape.lineTo(-0.3, 4.5);
+                bladeShape.lineTo(-0.4, 0.5);
+                bladeShape.closePath();
+                const bladeGeo = new THREE.ShapeGeometry(bladeShape);
+                const blade = new THREE.Mesh(bladeGeo, bladeMat);
+                blade.rotation.z = angle;
+                blade.rotation.x = -0.15; // slight pitch
+                fanGroup.add(blade);
+            }
+            group.add(hub);
+            group.add(fanGroup);
+
+            // RPM label (dynamic)
+            const rpmDiv = document.createElement('div');
+            rpmDiv.id = 'fan-rpm-label';
+            rpmDiv.style.cssText = 'color:#3fb950;font-size:11px;font-family:monospace;text-align:center;white-space:pre;text-shadow:0 0 6px #3fb950;pointer-events:none';
+            rpmDiv.textContent = 'RPM: 0';
+            const rpmLabel = new CSS2DObject(rpmDiv);
+            rpmLabel.position.set(0, BT/2 + 20, 0);
+            group.add(rpmLabel);
+            labelObjects.push(rpmLabel);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(label, x, BT/2 + 9, z);
+        }
+
+        // ── Build Dynamic Elements ──
+        function buildDynamics() {
+            // 1. Thermal glow under U1 (heat dissipation visualization)
+            const u1x = 16 - BW/2, u1z = 14 - BH/2;
+            const glowGeo = new THREE.CircleGeometry(3.5, 32);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0xff4400, transparent: true, opacity: 0.0, side: THREE.DoubleSide
+            });
+            thermalGlow = new THREE.Mesh(glowGeo, glowMat);
+            thermalGlow.rotation.x = -Math.PI / 2;
+            thermalGlow.position.set(u1x, BT/2 + 1.15, u1z);
+            scene.add(thermalGlow);
+
+            // 2. Signal flow particles along I2C traces
+            const i2cPath = [
+                [-16, BT/2 + 0.3, -7],   // J2 side
+                [-10, BT/2 + 0.3, -7],
+                [-4, BT/2 + 0.3, -2],     // toward U1
+            ];
+            const pwmPath = [
+                [-4, BT/2 + 0.3, -1],     // U1 side
+                [6, BT/2 + 0.3, -1],
+                [16, BT/2 + 0.3, -7],     // J1 side
+            ];
+            createSignalParticles(i2cPath, 0x58a6ff, 8);   // I2C: blue
+            createSignalParticles(pwmPath, 0x3fb950, 6);    // PWM: green
+
+            // 3. Power flow on 12V rail (orange particles)
+            const pwr12vPath = [
+                [16, BT/2 + 0.3, -7],     // J1
+                [10, BT/2 + 0.3, -7],
+                [10, BT/2 + 0.3, -3],
+            ];
+            createSignalParticles(pwr12vPath, 0xff8c00, 5); // 12V: orange
+
+            // 4. PWM pulse indicator near U1 output
+            const pwmIndGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            const pwmIndMat = new THREE.MeshBasicMaterial({ color: 0x3fb950, transparent: true, opacity: 0.8 });
+            pwmIndicator = new THREE.Mesh(pwmIndGeo, pwmIndMat);
+            pwmIndicator.position.set(-4 + BW/2 - BW/2, BT/2 + 1.5, -1 + BH/2 - BH/2);
+            // Position it at U1 FAN_PWM output
+            pwmIndicator.position.set(16 - BW/2 + 2.5, BT/2 + 1.5, 14 - BH/2 - 2);
+            scene.add(pwmIndicator);
+
+            // 5. Animated trace glow (I2C lines)
+            addGlowTrace([[-16, -7], [-10, -7], [-4, -2]], 0.35, 0x58a6ff);
+            addGlowTrace([[-4, -1], [6, -1], [16, -7]], 0.35, 0x3fb950);
+        }
+
+        function createSignalParticles(pathPoints, color, count) {
+            const curve = new THREE.CatmullRomCurve3(
+                pathPoints.map(p => new THREE.Vector3(p[0], p[1], p[2]))
+            );
+            const particleMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+            for (let i = 0; i < count; i++) {
+                const particle = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.12, 8, 8),
+                    particleMat.clone()
+                );
+                signalParticles.push({
+                    mesh: particle,
+                    curve: curve,
+                    t: i / count,
+                    speed: 0.003 + Math.random() * 0.002,
+                    baseColor: color,
+                });
+                scene.add(particle);
+            }
+        }
+
+        function addGlowTrace(points, width, color) {
+            for (let i = 0; i < points.length - 1; i++) {
+                const [x1, z1] = points[i];
+                const [x2, z2] = points[i + 1];
+                const dx = x2 - x1, dz = z2 - z1;
+                const len = Math.sqrt(dx * dx + dz * dz);
+                const angle = Math.atan2(dx, dz);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color, transparent: true, opacity: 0.15
+                });
+                const glow = new THREE.Mesh(
+                    new THREE.BoxGeometry(width * 3, 0.02, len + 0.5),
+                    glowMat
+                );
+                glow.position.set((x1 + x2) / 2, BT/2 + 0.06, (z1 + z2) / 2);
+                glow.rotation.y = angle;
+                scene.add(glow);
+                traceGlowMeshes.push(glow);
+            }
+        }
+
+        // ── Controls ──
+
+        window.resetCamera = function() {
+            camera.position.set(30, 40, 50);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        };
+
+        window.toggleWireframe = function() {
+            wireframeMode = !wireframeMode;
+            scene.traverse(obj => {
+                if (obj.isMesh && obj.material) {
+                    obj.material.wireframe = wireframeMode;
+                }
+            });
+        };
+
+        window.toggleLabels = function() {
+            labelsVisible = !labelsVisible;
+            labelObjects.forEach(l => { l.visible = labelsVisible; });
+        };
+
+        window.toggleAnimations = function() {
+            animationsEnabled = !animationsEnabled;
+            if (!animationsEnabled && fanGroup) {
+                fanSpeed = 0;
+                signalParticles.forEach(p => { p.mesh.material.opacity = 0; });
+                if (thermalGlow) thermalGlow.material.opacity = 0;
+                if (pwmIndicator) pwmIndicator.material.opacity = 0;
+                traceGlowMeshes.forEach(g => { g.material.opacity = 0; });
+            }
+        };
+
+        const fanSpeeds = [
+            { label: 'OFF', speed: 0 },
+            { label: 'LOW (30%)', speed: 1.2 },
+            { label: 'MED (60%)', speed: 2.4 },
+            { label: 'HIGH (100%)', speed: 4.0 },
+            { label: 'BOOST!', speed: 8.0 },
+        ];
+        let fanSpeedIdx = 3; // start at HIGH
+        window.cycleFanSpeed = function() {
+            fanSpeedIdx = (fanSpeedIdx + 1) % fanSpeeds.length;
+            fanTargetSpeed = fanSpeeds[fanSpeedIdx].speed;
+        };
+
+        function onResize() {
+            const container = document.getElementById('three-panel');
+            const w = container.clientWidth, h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            labelRenderer.setSize(w, h);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock ? clock.getDelta() : 0.016;
+            const elapsed = clock ? clock.getElapsedTime() : 0;
+
+            if (animationsEnabled) {
+                // 1. Fan spin — ramp up smoothly
+                if (fanGroup) {
+                    fanSpeed += (fanTargetSpeed - fanSpeed) * 0.02;
+                    fanGroup.rotation.y += fanSpeed * dt * 8;
+                    // Update RPM label
+                    const rpm = Math.round(fanSpeed / fanTargetSpeed * 3200);
+                    const rpmEl = document.getElementById('fan-rpm-label');
+                    if (rpmEl) {
+                        rpmEl.textContent = `RPM: ${rpm}\n${Math.round(fanSpeed/fanTargetSpeed*100)}% PWM`;
+                        rpmEl.style.color = rpm > 2000 ? '#d29922' : '#3fb950';
+                        rpmEl.style.textShadow = `0 0 6px ${rpm > 2000 ? '#d29922' : '#3fb950'}`;
+                    }
+                }
+
+                // 2. Signal flow particles
+                for (const p of signalParticles) {
+                    p.t += p.speed;
+                    if (p.t > 1) p.t -= 1;
+                    const pos = p.curve.getPointAt(p.t);
+                    p.mesh.position.copy(pos);
+                    // Pulse opacity
+                    p.mesh.material.opacity = 0.5 + 0.5 * Math.sin(elapsed * 6 + p.t * Math.PI * 2);
+                    // Scale pulse
+                    const s = 0.8 + 0.4 * Math.sin(elapsed * 8 + p.t * Math.PI * 4);
+                    p.mesh.scale.setScalar(s);
+                }
+
+                // 3. Thermal glow pulse on U1
+                if (thermalGlow) {
+                    const heat = 0.08 + 0.06 * Math.sin(elapsed * 1.5);
+                    thermalGlow.material.opacity = heat;
+                    // Color shift: orange → red based on "temperature"
+                    const temp = 0.5 + 0.5 * Math.sin(elapsed * 0.8);
+                    thermalGlow.material.color.setHSL(0.05 - temp * 0.03, 1.0, 0.5);
+                    thermalGlow.scale.setScalar(1.0 + 0.1 * Math.sin(elapsed * 2));
+                }
+
+                // 4. PWM indicator blink (simulates 25kHz PWM as visible blink)
+                if (pwmIndicator) {
+                    pwmPhase += dt * 3;
+                    const duty = 0.7; // 70% duty cycle
+                    const pwmOn = (pwmPhase % 1.0) < duty;
+                    pwmIndicator.material.opacity = pwmOn ? 0.9 : 0.1;
+                    pwmIndicator.scale.setScalar(pwmOn ? 1.2 : 0.6);
+                }
+
+                // 5. Trace glow breathing
+                for (const glow of traceGlowMeshes) {
+                    glow.material.opacity = 0.08 + 0.1 * Math.sin(elapsed * 2.5);
+                }
+
+                // 6. Shunt resistor danger glow (power monitor)
+                if (shuntGlow) {
+                    const heat = 0.12 + 0.1 * Math.sin(elapsed * 1.2);
+                    shuntGlow.material.opacity = heat;
+                    shuntGlow.material.color.setHSL(0.0, 1.0, 0.4 + 0.1 * Math.sin(elapsed * 0.8));
+                    shuntGlow.scale.setScalar(1.0 + 0.15 * Math.sin(elapsed * 1.5));
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+
+        // ── Power Monitor Board Builder ──
+        const PM_BW = 35, PM_BH = 25;
+
+        function buildPowerMonitorPCB() {
+            // PCB Board
+            const boardGeo = new THREE.BoxGeometry(PM_BW, BT, PM_BH);
+            const boardMat = new THREE.MeshStandardMaterial({ color: PCB_COLOR, roughness: 0.6 });
+            const board = new THREE.Mesh(boardGeo, boardMat);
+            board.receiveShadow = true;
+            scene.add(board);
+            boardMeshes.push(board);
+
+            // Solder mask
+            const maskGeo = new THREE.BoxGeometry(PM_BW - 0.2, 0.05, PM_BH - 0.2);
+            const maskMat = new THREE.MeshStandardMaterial({ color: SOLDERMASK, roughness: 0.4, transparent: true, opacity: 0.8 });
+            const maskTop = new THREE.Mesh(maskGeo, maskMat);
+            maskTop.position.y = BT / 2 + 0.025;
+            scene.add(maskTop);
+            boardMeshes.push(maskTop);
+
+            // Copper bottom
+            const copperBotGeo = new THREE.BoxGeometry(PM_BW - 1, 0.035, PM_BH - 1);
+            const copperBotMat = new THREE.MeshStandardMaterial({ color: COPPER_BOT, roughness: 0.3, metalness: 0.8 });
+            const copperBot = new THREE.Mesh(copperBotGeo, copperBotMat);
+            copperBot.position.y = -BT / 2 - 0.02;
+            scene.add(copperBot);
+            boardMeshes.push(copperBot);
+
+            const ox = -PM_BW / 2, oz = -PM_BH / 2;
+
+            // ── U2: INA226 MSOP-10 ──
+            addMSOP10(14 + ox, 12 + oz, 'U2\nINA226');
+
+            // ── Rs1: 2512 Shunt Resistor (HIGH RISK — red glow) ──
+            addShuntResistor2512(14 + ox, 5 + oz, 'Rs1\n2mΩ');
+
+            // ── J3: 12V IN (left) ──
+            addPinHeader2(3 + ox, 4 + oz, 'J3\n12V IN');
+            // ── J4: 12V OUT (right) ──
+            addPinHeader2(32 + ox, 4 + oz, 'J4\n12V OUT');
+            // ── J5: BMC I2C (left bottom) ──
+            addPinHeader4(3 + ox, 14 + oz, 'J5\nBMC');
+
+            // ── Resistors ──
+            addSMDResistor(9 + ox, 14 + oz, 'R4', '4.7k');
+            addSMDResistor(9 + ox, 17 + oz, 'R5', '4.7k');
+            addSMDResistor(22 + ox, 17 + oz, 'R6', '10k');
+            addSMDResistor(26 + ox, 17 + oz, 'R7', '1k');
+
+            // ── D1: LED ──
+            addLED(30 + ox, 17 + oz, 'D1\nRED');
+
+            // ── Capacitors ──
+            addSMDCapacitor(18 + ox, 18 + oz, 0.5, 0.25, 'C5', '100nF');
+            addSMDCapacitor(22 + ox, 21 + oz, 1.0, 0.6, 'C6', '10uF');
+            addSMDCapacitor(7 + ox, 5 + oz, 0.8, 0.4, 'C7', '100nF');
+
+            // ── Mounting Holes ──
+            addMountingHole(2.5 + ox, 2.5 + oz);
+            addMountingHole(PM_BW - 2.5 + ox, 2.5 + oz);
+            addMountingHole(2.5 + ox, PM_BH - 2.5 + oz);
+            addMountingHole(PM_BW - 2.5 + ox, PM_BH - 2.5 + oz);
+
+            // 12V high-current traces (thick)
+            addTrace([[3 + ox, 4 + oz], [7 + ox, 5 + oz], [11.2 + ox, 5 + oz]], 0.8, 0xff8c00);
+            addTrace([[16.8 + ox, 5 + oz], [32 + ox, 4 + oz]], 0.8, 0xff8c00);
+
+            // Silkscreen
+            addTextLabel(0, PM_BH / 2 - 2, 'Smart Power Monitor', 1.0);
+            addTextLabel(0, -PM_BH / 2 + 2, 'INA226 | 12V 30A', 0.7);
+
+            // ── Power flow particles on 12V path ──
+            const pwr12Path = [
+                [3 + ox, BT / 2 + 0.3, 4 + oz],
+                [11 + ox, BT / 2 + 0.3, 5 + oz],
+                [17 + ox, BT / 2 + 0.3, 5 + oz],
+                [32 + ox, BT / 2 + 0.3, 4 + oz],
+            ];
+            createSignalParticles(pwr12Path, 0xff4400, 10);
+
+            // I2C signal
+            const i2cPmPath = [
+                [3 + ox, BT / 2 + 0.3, 14 + oz],
+                [9 + ox, BT / 2 + 0.3, 14 + oz],
+                [14 + ox, BT / 2 + 0.3, 12 + oz],
+            ];
+            createSignalParticles(i2cPmPath, 0x58a6ff, 6);
+
+            // ── Shunt resistor thermal glow (HIGH RISK) ──
+            const glowGeo = new THREE.CircleGeometry(5, 32);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0xff0000, transparent: true, opacity: 0.0, side: THREE.DoubleSide
+            });
+            shuntGlow = new THREE.Mesh(glowGeo, glowMat);
+            shuntGlow.rotation.x = -Math.PI / 2;
+            shuntGlow.position.set(14 + ox, BT / 2 + 0.8, 5 + oz);
+            scene.add(shuntGlow);
+
+            // Trace glow on 12V path
+            addGlowTrace([[3 + ox, 4 + oz], [11 + ox, 5 + oz], [17 + ox, 5 + oz], [32 + ox, 4 + oz]], 0.5, 0xff4400);
+        }
+
+        function addMSOP10(x, z, label) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(3, 0.8, 3),
+                new THREE.MeshStandardMaterial({ color: IC_COLOR, roughness: 0.3 })
+            );
+            body.position.y = BT / 2 + 0.4;
+            body.castShadow = true;
+            group.add(body);
+
+            // Pads
+            for (let i = 0; i < 5; i++) {
+                const pad = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.2, 0.05, 0.5),
+                    new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                pad.position.set(-0.8 + i * 0.4, BT / 2 + 0.03, 1.3);
+                group.add(pad);
+                const pad2 = pad.clone();
+                pad2.position.set(0.8 - i * 0.4, BT / 2 + 0.03, -1.3);
+                group.add(pad2);
+            }
+
+            // Pin 1 dot
+            const dot = new THREE.Mesh(
+                new THREE.SphereGeometry(0.1, 8, 8),
+                new THREE.MeshStandardMaterial({ color: SILKSCREEN })
+            );
+            dot.position.set(-0.8, BT / 2 + 0.85, 1.0);
+            group.add(dot);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(label, x, BT / 2 + 1.5, z);
+        }
+
+        function addShuntResistor2512(x, z, label) {
+            const group = new THREE.Group();
+            // Large 2512 body (6.3mm × 3.2mm) — highlighted RED for high-risk
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(6.3, 0.8, 3.2),
+                new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.3, emissive: 0x330000, emissiveIntensity: 0.5 })
+            );
+            body.position.y = BT / 2 + 0.4;
+            body.castShadow = true;
+            group.add(body);
+
+            // Terminal pads (large)
+            for (const dx of [-2.8, 2.8]) {
+                const term = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.8, 0.6, 3.0),
+                    new THREE.MeshStandardMaterial({ color: PAD_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                term.position.set(dx, BT / 2 + 0.3, 0);
+                group.add(term);
+            }
+
+            // "HIGH RISK" warning ring
+            const warnRing = new THREE.Mesh(
+                new THREE.RingGeometry(4.5, 5.0, 32),
+                new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+            );
+            warnRing.rotation.x = -Math.PI / 2;
+            warnRing.position.y = BT / 2 + 0.9;
+            group.add(warnRing);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            // Red label for high-risk
+            const div = document.createElement('div');
+            div.style.cssText = 'color:#f85149;font-size:11px;font-family:monospace;text-align:center;white-space:pre;text-shadow:0 0 6px #f85149;pointer-events:none;font-weight:bold';
+            div.textContent = label + '\n⚠ 1.8W/2W';
+            const lbl = new CSS2DObject(div);
+            lbl.position.set(x, BT / 2 + 1.8, z);
+            scene.add(lbl);
+            labelObjects.push(lbl);
+        }
+
+        function addPinHeader2(x, z, label) {
+            const group = new THREE.Group();
+            const housing = new THREE.Mesh(
+                new THREE.BoxGeometry(2.54, 2.5, 5.08),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+            );
+            housing.position.y = BT / 2 + 1.25;
+            housing.castShadow = true;
+            group.add(housing);
+
+            for (let i = 0; i < 2; i++) {
+                const pinUp = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.32, 0.32, 6, 8),
+                    new THREE.MeshStandardMaterial({ color: PIN_COLOR, metalness: 0.9, roughness: 0.2 })
+                );
+                pinUp.position.set(0, BT / 2 + 5.5, -1.27 + i * 2.54);
+                group.add(pinUp);
+            }
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(label, x, BT / 2 + 9, z);
+        }
+
+        function addLED(x, z, label) {
+            const group = new THREE.Group();
+            // LED body (0603)
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.6, 0.5, 0.8),
+                new THREE.MeshStandardMaterial({ color: 0x880000, roughness: 0.3, emissive: 0xff0000, emissiveIntensity: 0.3, transparent: true, opacity: 0.9 })
+            );
+            body.position.y = BT / 2 + 0.25;
+            group.add(body);
+
+            // LED glow
+            const ledGlow = new THREE.Mesh(
+                new THREE.SphereGeometry(0.8, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.15 })
+            );
+            ledGlow.position.y = BT / 2 + 0.5;
+            group.add(ledGlow);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            componentMeshes.push(group);
+            addCSS2DLabel(label, x, BT / 2 + 1.2, z);
+        }
+
+        // ── Rebuild 3D scene for module switch ──
+        window.rebuild3D = function(mod) {
+            if (!scene) return;
+            currentBuildModule = mod;
+            // Clear existing objects
+            const toRemove = [...boardMeshes, ...componentMeshes];
+            for (const obj of toRemove) scene.remove(obj);
+            boardMeshes.length = 0;
+            componentMeshes.length = 0;
+
+            // Clear labels
+            for (const l of labelObjects) scene.remove(l);
+            labelObjects.length = 0;
+
+            // Clear particles
+            for (const p of signalParticles) scene.remove(p.mesh);
+            signalParticles.length = 0;
+
+            // Clear trace glows
+            for (const g of traceGlowMeshes) scene.remove(g);
+            traceGlowMeshes.length = 0;
+
+            // Clear special objects
+            if (thermalGlow) { scene.remove(thermalGlow); thermalGlow = null; }
+            if (pwmIndicator) { scene.remove(pwmIndicator); pwmIndicator = null; }
+            if (shuntGlow) { scene.remove(shuntGlow); shuntGlow = null; }
+            fanGroup = null;
+
+            if (mod === 'fan') {
+                buildPCB();
+                buildDynamics();
+            } else {
+                buildPowerMonitorPCB();
+            }
+        };
+
+        window.initThree = initThree;
+    </script>
+</body>
+</html>
